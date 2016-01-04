@@ -21,7 +21,7 @@ func TestSmallDataSet(t *testing.T) {
 
 	ad := NewAnomalyDetection(dataSet...)
 
-	totalSamples, _ := ad.TotalSamples.Uint64()
+	totalSamples, _ := ad.totalSamples.Uint64()
 	if totalSamples != 20 {
 		t.Fatal("Wrong number of element in the set. There are for sure 20, instead we got:", totalSamples)
 	}

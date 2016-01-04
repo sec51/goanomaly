@@ -23,20 +23,21 @@ var (
 	doublePiSqrt     = big.NewFloat(math.Sqrt(doublePiValue))
 )
 
-type anomalyDetection struct {
-	DataSet      []big.Float
-	TotalSamples big.Float
+type AnomalyDetection struct {
+	dataSet      []big.Float
+	totalSamples big.Float
 	totalSum     big.Float
 	mean         big.Float // this is the average mean
 	variance     big.Float // this is the average variance
 	deviation    big.Float // this is the average deviation
 }
 
-type anomalyDetectionVector []*anomalyDetection
+type AnomalyDetectionVector []*AnomalyDetection
 
-func NewAnomalyDetectionVector(vector ...[]big.Float) anomalyDetectionVector {
+// Creates an anomaly detection object with multi dimension dataset (multivariate)
+func NewAnomalyDetectionVector(vector ...[]big.Float) AnomalyDetectionVector {
 
-	var adVector anomalyDetectionVector
+	var adVector AnomalyDetectionVector
 
 	// wait group
 	var wg sync.WaitGroup
@@ -49,7 +50,7 @@ func NewAnomalyDetectionVector(vector ...[]big.Float) anomalyDetectionVector {
 		// Increment the WaitGroup counter.
 		wg.Add(1)
 		// Launch a goroutine to fetch the URL.
-		go func(m sync.Mutex, anomalyVector *anomalyDetectionVector, set ...big.Float) {
+		go func(m sync.Mutex, anomalyVector *AnomalyDetectionVector, set ...big.Float) {
 			// Decrement the counter when the goroutine completes.
 			defer wg.Done()
 
@@ -76,7 +77,7 @@ func NewAnomalyDetectionVector(vector ...[]big.Float) anomalyDetectionVector {
 	return adVector
 }
 
-func (adVector anomalyDetectionVector) EventIsAnomalous(eventX big.Float, threshold *big.Float) (bool, float64) {
+func (adVector AnomalyDetectionVector) EventIsAnomalous(eventX big.Float, threshold *big.Float) (bool, float64) {
 
 	// wait group
 	var wg sync.WaitGroup
@@ -91,7 +92,7 @@ func (adVector anomalyDetectionVector) EventIsAnomalous(eventX big.Float, thresh
 		// Increment the WaitGroup counter.
 		wg.Add(1)
 		// Launch a goroutine to fetch the URL.
-		go func(m sync.Mutex, anomaly *anomalyDetection, prob *[]*big.Float, eX big.Float) {
+		go func(m sync.Mutex, anomaly *AnomalyDetection, prob *[]*big.Float, eX big.Float) {
 
 			// Decrement the counter when the goroutine completes.
 			defer wg.Done()
@@ -128,18 +129,18 @@ func (adVector anomalyDetectionVector) EventIsAnomalous(eventX big.Float, thresh
 }
 
 // Creates an anomaly detection object with a one dimension dataset
-func NewAnomalyDetection(data ...big.Float) *anomalyDetection {
+func NewAnomalyDetection(data ...big.Float) *AnomalyDetection {
 
-	ad := anomalyDetection{}
-	ad.DataSet = data
+	ad := AnomalyDetection{}
+	ad.dataSet = data
 	ad.totalSum = *big.NewFloat(0)
 
 	// means totalSamples is smaller than delimiter
-	totalSamples := big.NewFloat(float64(len(ad.DataSet)))
+	totalSamples := big.NewFloat(float64(len(ad.dataSet)))
 	// if totalSamples.Cmp(delimiter) < 0 {
 	// 	totalSamples.Sub(totalSamples, one)
 	// }
-	ad.TotalSamples = *totalSamples
+	ad.totalSamples = *totalSamples
 
 	// estimate the mean already
 	ad.estimateMean()
@@ -150,17 +151,17 @@ func NewAnomalyDetection(data ...big.Float) *anomalyDetection {
 	return &ad
 }
 
-func (ad *anomalyDetection) ExpandDataSet(data ...big.Float) {
-	ad.DataSet = append(ad.DataSet, data...)
+func (ad *AnomalyDetection) ExpandDataSet(data ...big.Float) {
+	ad.dataSet = append(ad.dataSet, data...)
 
 	ad.totalSum = *big.NewFloat(0)
 
 	// means totalSamples is smaller than delimiter
-	totalSamples := big.NewFloat(float64(len(ad.DataSet)))
+	totalSamples := big.NewFloat(float64(len(ad.dataSet)))
 	// if totalSamples.Cmp(delimiter) < 0 {
 	// 	totalSamples.Sub(totalSamples, one)
 	// }
-	ad.TotalSamples = *totalSamples
+	ad.totalSamples = *totalSamples
 
 	ad.estimateMean()
 
@@ -169,7 +170,7 @@ func (ad *anomalyDetection) ExpandDataSet(data ...big.Float) {
 
 // This method calculates the probability with probability density formula
 // TODO: CREATE THE SQRT and EXP methods for bignum
-func (ad *anomalyDetection) calculateProbability(eventX big.Float) *big.Float {
+func (ad *AnomalyDetection) calculateProbability(eventX big.Float) *big.Float {
 	anomaly := big.NewFloat(0)
 
 	// Left term
@@ -213,7 +214,7 @@ func (ad *anomalyDetection) calculateProbability(eventX big.Float) *big.Float {
 }
 
 // Verifies whether a specific event X is anomalous or not
-func (ad *anomalyDetection) EventIsAnomalous(eventX big.Float, threshold *big.Float) (bool, float64) {
+func (ad *AnomalyDetection) EventIsAnomalous(eventX big.Float, threshold *big.Float) (bool, float64) {
 
 	probability := ad.calculateProbability(eventX)
 	r, _ := probability.Float64()
@@ -222,7 +223,7 @@ func (ad *anomalyDetection) EventIsAnomalous(eventX big.Float, threshold *big.Fl
 
 // Estimates the Mean based on the data set
 // If the data set is relatively small (< 1000 examples), then remove 1 from the total
-func (ad *anomalyDetection) estimateMean() *big.Float {
+func (ad *AnomalyDetection) estimateMean() *big.Float {
 
 	// initialize the total to zero
 	totalMean := big.NewFloat(0)
@@ -230,7 +231,7 @@ func (ad *anomalyDetection) estimateMean() *big.Float {
 	mean := big.NewFloat(0)
 
 	// Loop thorugh the data set
-	for _, element := range ad.DataSet {
+	for _, element := range ad.dataSet {
 
 		// sum up its elements
 		totalMean.Add(totalMean, &element)
@@ -242,7 +243,7 @@ func (ad *anomalyDetection) estimateMean() *big.Float {
 	ad.totalSum.Copy(totalMean)
 
 	// calculate the mean
-	mean.Quo(totalMean, &ad.TotalSamples)
+	mean.Quo(totalMean, &ad.totalSamples)
 
 	// assign the mean to the anomaly detection object
 	ad.mean = *mean
@@ -252,7 +253,7 @@ func (ad *anomalyDetection) estimateMean() *big.Float {
 
 // Estimates the Variance based on the data set
 // If the data set is relatively small (< 1000 examples), then remove 1 from the total
-func (ad *anomalyDetection) estimateVariance() *big.Float {
+func (ad *AnomalyDetection) estimateVariance() *big.Float {
 
 	// this means that the mean was never calculated before, therefore do it now
 	// the means is needed for the cimputation of the deviation
@@ -270,22 +271,15 @@ func (ad *anomalyDetection) estimateVariance() *big.Float {
 	var singleVariance big.Float
 
 	// Loop while a is smaller than 1e100.
-	for _, element := range ad.DataSet {
+	for _, element := range ad.dataSet {
 		// first calculate the deviation for each element, by subtracting the mean, take the absolute value
 		deviation.Sub(&element, &ad.mean).Abs(&deviation)
-		//d, _ := deviation.Float64()
-		//e, _ := element.Float64()
-		//fmt.Printf("Elem: %f - deviation %f\n", e, d)
 
 		// add it to the total
 		totalDeviation.Add(totalDeviation, &deviation)
-		//t, _ := totalDeviation.Float64()
-		//fmt.Printf("--- Subtotal: %f\n", t)
+
 		// calculate the variance by squaring it
 		singleVariance = *deviationCopy.Mul(&deviation, &deviation) // ^2
-
-		//sv, _ := singleVariance.Float64()
-		//fmt.Printf("--- SV: %f\n", sv)
 
 		// the calculate the variance
 		totalVariance.Add(totalVariance, &singleVariance)
@@ -293,10 +287,10 @@ func (ad *anomalyDetection) estimateVariance() *big.Float {
 
 	// calculate the variance
 	// assign the variance to the anomaly detection object
-	ad.variance = *totalVariance.Quo(totalVariance, &ad.TotalSamples)
+	ad.variance = *totalVariance.Quo(totalVariance, &ad.totalSamples)
 
 	// calculate the deviation
-	ad.deviation = *totalDeviation.Quo(totalDeviation, &ad.TotalSamples)
+	ad.deviation = *totalDeviation.Quo(totalDeviation, &ad.totalSamples)
 
 	return &ad.variance
 }
