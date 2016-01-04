@@ -1,4 +1,4 @@
-[![GoDoc](https://godoc.org/github.com/golang/gddo?status.svg)](https://godoc.org/github.com/sec51/goanomaly/)
+[![Build Status](https://travis-ci.org/sec51/goanomaly.svg)](https://travis-ci.org/sec51/goanomaly) [![GoDoc](https://godoc.org/github.com/golang/gddo?status.svg)](https://godoc.org/github.com/sec51/goanomaly/)
 
 ### Anomaly detection library in golang, implemented via Gaussian distribution
 
