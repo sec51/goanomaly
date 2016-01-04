@@ -1,8 +1,7 @@
-package main
+package goanomaly
 
 import (
 	"crypto/rand"
-	//"fmt"
 	"math/big"
 	"testing"
 )
@@ -15,15 +14,6 @@ var (
 	deviationMaxFloat    = big.NewFloat(20)
 	higherDeviationFloat = big.NewFloat(100)
 )
-
-// func TestEventIsAnomalous(t *testing.T) {
-// 	dataSet := fakeFixedData()
-
-// 	ad := NewAnomalyDetection(dataSet...)
-
-// 	ad.EventIsAnomalous(*big.NewFloat(6020))
-
-// }
 
 func TestSmallDataSet(t *testing.T) {
 
