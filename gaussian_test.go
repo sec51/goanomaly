@@ -169,12 +169,12 @@ func BenchmarkEventXIsAnomalous(b *testing.B) {
 	dataSet := fakeSmallData()
 	ad := NewAnomalyDetection(dataSet...)
 
-	eventX := *big.NewFloat(4.3)
+	eventX := big.NewFloat(4.3)
 	threshold := big.NewFloat(0.02)
 
 	b.StartTimer()
 	for n := 0; n < b.N; n++ {
-		ad.EventIsAnomalous(eventX, threshold)
+		ad.EventXIsAnomalous(eventX, threshold)
 	}
 
 }

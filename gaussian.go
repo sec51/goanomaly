@@ -1,7 +1,6 @@
 package goanomaly
 
 import (
-	//"fmt"
 	"math"
 	"math/big"
 	"sync"
@@ -18,7 +17,7 @@ var (
 	delimiter = big.NewFloat(float64(100)) // this is the delimiter for between a small set and a large set (does not change much)
 
 	// pre calculated constants
-	doublePi         = big.NewFloat(0).Mul(two, pi)
+	doublePi         = new(big.Float).Mul(two, pi)
 	doublePiValue, _ = doublePi.Float64()
 	doublePiSqrt     = big.NewFloat(math.Sqrt(doublePiValue))
 )
@@ -133,14 +132,7 @@ func NewAnomalyDetection(data ...big.Float) *AnomalyDetection {
 
 	ad := AnomalyDetection{}
 	ad.dataSet = data
-	ad.totalSum = *big.NewFloat(0)
-
-	// means totalSamples is smaller than delimiter
-	totalSamples := big.NewFloat(float64(len(ad.dataSet)))
-	// if totalSamples.Cmp(delimiter) < 0 {
-	// 	totalSamples.Sub(totalSamples, one)
-	// }
-	ad.totalSamples = *totalSamples
+	ad.totalSamples.SetFloat64(float64(len(data)))
 
 	// estimate the mean already
 	ad.estimateMean()
@@ -152,12 +144,15 @@ func NewAnomalyDetection(data ...big.Float) *AnomalyDetection {
 }
 
 func (ad *AnomalyDetection) ExpandDataSet(data ...big.Float) {
-	ad.dataSet = append(ad.dataSet, data...)
+	if ad.dataSet == nil {
+		// Should return an error because the dataSet was cleared
+		return;
+	}
 
-	ad.totalSum = *big.NewFloat(0)
+	ad.totalSum = *new(big.Float)
 
 	// means totalSamples is smaller than delimiter
-	totalSamples := big.NewFloat(float64(len(ad.dataSet)))
+	totalSamples := big.NewFloat(float64(len(data)))
 	// if totalSamples.Cmp(delimiter) < 0 {
 	// 	totalSamples.Sub(totalSamples, one)
 	// }
@@ -168,49 +163,39 @@ func (ad *AnomalyDetection) ExpandDataSet(data ...big.Float) {
 	ad.estimateVariance()
 }
 
+// ClearDataSet reset the dataSet to nil to release resources
+func (ad *AnomalyDetection) ClearDataSet() {
+	ad.dataSet = nil
+}
+
 // This method calculates the probability with probability density formula
 // TODO: CREATE THE SQRT and EXP methods for bignum
 func (ad *AnomalyDetection) calculateProbability(eventX big.Float) *big.Float {
-	anomaly := big.NewFloat(0)
-
-	// Left term
-	// Init the holder of the final value of the first term
-	leftTerm := big.NewFloat(0)
-	sqrtDeviation := big.NewFloat(0)
-
-	// Multiply the Square root of the the 2*pi for the deviation
-	sqrtDeviation.Mul(doublePiSqrt, &ad.deviation)
-
-	// make the division and assign it to the left term
-	leftTerm.Quo(one, sqrtDeviation)
-
-	// e, _ := leftTerm.Float64()
-	// fmt.Println("LEFT term:", e)
-
-	// ======================================
-
 	// Right term
-	rightTerm := big.NewFloat(0)
-
-	eventXDeviation := big.NewFloat(0).Sub(&eventX, &ad.mean) // no need to take the Absolute value because we square on the next step
-	eventXDeviationSquared := big.NewFloat(0).Mul(eventXDeviation, eventXDeviation)
+	rightTerm := new(big.Float).Sub(&eventX, &ad.mean) // no need to take the Absolute value because we square on the next step
+	rightTerm.Mul(rightTerm, rightTerm)
 
 	// take the variance and double it
-	doubleVariance := big.NewFloat(0).Mul(two, &ad.variance)
+	tempA := new(big.Float).Mul(two, &ad.variance)
 
 	// divide eventXDeviationSquared with doubleVariance
-	rightTerm.Quo(eventXDeviationSquared, doubleVariance)
+	rightTerm.Quo(rightTerm, tempA)
 
 	// get its value
 	rightFloat, _ := rightTerm.Float64()
 
 	// do e^(-right term value)
-	right := math.Exp(-rightFloat)
+	rightFloat = math.Exp(-rightFloat)
+
+	// ======================================
+	// Left term
+
+	// Init the holder of the final value of the first term
+	// Multiply the Square root of the the 2*pi for the deviation
+	tempA.Mul(doublePiSqrt, &ad.deviation)
 
 	// multiply the two terms
-	anomaly.Mul(leftTerm, big.NewFloat(right))
-
-	return anomaly
+	return rightTerm.Quo(rightTerm.SetFloat64(rightFloat), tempA)
 }
 
 // Verifies whether a specific event X is anomalous or not
@@ -221,34 +206,65 @@ func (ad *AnomalyDetection) EventIsAnomalous(eventX big.Float, threshold *big.Fl
 	return probability.Cmp(threshold) < 0, r
 }
 
+
+// Verifies whether a specific event X is anomalous or not
+// This method calculates the probability with probability density formula
+// TODO: CREATE THE SQRT and EXP methods for bignum
+func (ad *AnomalyDetection) EventXIsAnomalous(eventX, threshold *big.Float) (bool, *big.Float) {
+	// Right term
+	rightTerm := new(big.Float).Sub(eventX, &ad.mean) // no need to take the Absolute value because we square on the next step
+	rightTerm.Mul(rightTerm, rightTerm)
+
+	// take the variance and double it
+	tempA := new(big.Float).Mul(two, &ad.variance)
+
+	if tempA.Cmp(zero) == 0 {
+		return false, zero
+	}
+
+	// divide eventXDeviationSquared with doubleVariance
+	rightTerm.Quo(rightTerm, tempA)
+
+	// get its value
+	rightFloat, _ := rightTerm.Float64()
+
+	// do e^(-right term value)
+	rightFloat = math.Exp(-rightFloat)
+
+	// ======================================
+	// Left term
+
+	// Init the holder of the final value of the first term
+	// Multiply the Square root of the the 2*pi for the deviation
+	tempA.Mul(doublePiSqrt, &ad.deviation)
+
+	// multiply the two terms
+	rightTerm.Quo(rightTerm.SetFloat64(rightFloat), tempA)
+
+	return rightTerm.Cmp(threshold) < 0, rightTerm
+}
+
 // Estimates the Mean based on the data set
 // If the data set is relatively small (< 1000 examples), then remove 1 from the total
 func (ad *AnomalyDetection) estimateMean() *big.Float {
 
 	// initialize the total to zero
-	totalMean := big.NewFloat(0)
-
-	mean := big.NewFloat(0)
+	totalSum := new(big.Float)
 
 	// Loop thorugh the data set
 	for _, element := range ad.dataSet {
 
 		// sum up its elements
-		totalMean.Add(totalMean, &element)
+		totalSum.Add(totalSum, &element)
 		//e, _ := element.Float64()
 
 	}
 
 	// make a copy of the total sum and assign it to the anomaly detection object
-	ad.totalSum.Copy(totalMean)
+	ad.totalSum.Copy(totalSum)
 
-	// calculate the mean
-	mean.Quo(totalMean, &ad.totalSamples)
-
-	// assign the mean to the anomaly detection object
-	ad.mean = *mean
-
-	return mean
+	// calculate the mean and return
+	return ad.mean.Quo(totalSum, &ad.totalSamples)
 }
 
 // Estimates the Variance based on the data set
@@ -262,27 +278,25 @@ func (ad *AnomalyDetection) estimateVariance() *big.Float {
 	}
 
 	// initialize the total to zero
-	totalVariance := big.NewFloat(0)
-	totalDeviation := big.NewFloat(0)
+	totalVariance := new(big.Float)
+	totalDeviation := new(big.Float)
 
-	var deviation big.Float
-	var deviationCopy big.Float
-
-	var singleVariance big.Float
+	deviation := new(big.Float)
+	var singleVariance *big.Float
 
 	// Loop while a is smaller than 1e100.
 	for _, element := range ad.dataSet {
 		// first calculate the deviation for each element, by subtracting the mean, take the absolute value
-		deviation.Sub(&element, &ad.mean).Abs(&deviation)
+		deviation.Sub(&element, &ad.mean).Abs(deviation)
 
 		// add it to the total
-		totalDeviation.Add(totalDeviation, &deviation)
+		totalDeviation.Add(totalDeviation, deviation)
 
 		// calculate the variance by squaring it
-		singleVariance = *deviationCopy.Mul(&deviation, &deviation) // ^2
+		singleVariance = deviation.Mul(deviation, deviation) // ^2
 
 		// the calculate the variance
-		totalVariance.Add(totalVariance, &singleVariance)
+		totalVariance.Add(totalVariance, singleVariance)
 	}
 
 	// calculate the variance
