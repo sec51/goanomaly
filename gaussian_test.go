@@ -125,6 +125,86 @@ func TestRandomEstimateMean(t *testing.T) {
 
 }
 
+func BenchmarkNewAnomalyDetection(b *testing.B) {
+	b.StopTimer()
+	dataSet := fakeSmallData()
+
+	b.StartTimer()
+	for n := 0; n < b.N; n++ {
+		NewAnomalyDetection(dataSet...)
+	}
+
+}
+
+func BenchmarkExpandDataSet(b *testing.B) {
+	b.StopTimer()
+	dataSet := fakeSmallData()
+
+	for n := 0; n < b.N; n++ {
+		ad := NewAnomalyDetection(dataSet...)
+		b.StartTimer()
+		ad.ExpandDataSet(dataSet...)
+		b.StopTimer()
+	}
+
+}
+
+func BenchmarkEventIsAnomalousn(b *testing.B) {
+	b.StopTimer()
+	dataSet := fakeSmallData()
+	ad := NewAnomalyDetection(dataSet...)
+
+	eventX := *big.NewFloat(4.3)
+	threshold := big.NewFloat(0.02)
+
+	b.StartTimer()
+	for n := 0; n < b.N; n++ {
+		ad.EventIsAnomalous(eventX, threshold)
+	}
+
+}
+
+func BenchmarkEventXIsAnomalous(b *testing.B) {
+	b.StopTimer()
+	dataSet := fakeSmallData()
+	ad := NewAnomalyDetection(dataSet...)
+
+	eventX := big.NewFloat(4.3)
+	threshold := big.NewFloat(0.02)
+
+	b.StartTimer()
+	for n := 0; n < b.N; n++ {
+		ad.EventXIsAnomalous(eventX, threshold)
+	}
+
+}
+
+func BenchmarkCalculateProbability(b *testing.B) {
+	b.StopTimer()
+	dataSet := fakeSmallData()
+	ad := NewAnomalyDetection(dataSet...)
+
+	eventX := *big.NewFloat(4.3)
+
+	b.StartTimer()
+	for n := 0; n < b.N; n++ {
+		ad.calculateProbability(eventX)
+	}
+
+}
+
+func BenchmarkEstimateVariance(b *testing.B) {
+	b.StopTimer()
+	data := append(fakeSmallData(), fakeSmallData()...)
+	ad := NewAnomalyDetection(data...)
+	ad.estimateMean()
+
+	b.StartTimer()
+	for n := 0; n < b.N; n++ {
+		ad.estimateVariance()
+	}
+}
+
 func fakeSmallData() []big.Float {
 
 	// total number of elements: 20
